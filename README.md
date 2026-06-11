@@ -1,6 +1,6 @@
-# SonarSeek: LoRa-Based Off-Grid Wilderness Search & Rescue Locator
+# OffGrid LoRa Emergency Locator
 
-SonarSeek is a dual-node, off-grid telemetry and tracking system designed to locate lost individuals in remote areas (such as dense forests or canyons) without cellular network coverage. 
+OffGrid LoRa Emergency Locator is a dual-node, off-grid telemetry and tracking system designed to locate lost individuals in remote areas (such as dense forests or canyons) without cellular network coverage. 
 
 The system consists of a compact, low-power **Transmitter Beacon** carried by the lost person, and a hand-held **Receiver Locator Console** carried by the rescuer. The receiver hosts a local Wi-Fi Hotspot and Web Server, allowing the rescuer to track distance and signal strength trends in real-time through an interactive, browser-based dashboard on their smartphone.
 
