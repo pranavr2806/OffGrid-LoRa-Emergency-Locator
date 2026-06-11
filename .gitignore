@@ -1,0 +1,26 @@
+# Build outputs (STM32CubeIDE)
+Debug/
+Release/
+*.elf
+*.bin
+*.hex
+*.map
+*.o
+*.su
+*.d
+
+# Local settings and IDE cache
+.settings/
+.launches/
+*.launch
+.metadata/
+*.local
+*.log
+
+# Arduino compilation directories
+build/
+libraries/
+
+# OS temporary files
+.DS_Store
+Thumbs.db
