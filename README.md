@@ -51,7 +51,7 @@ The system consists of a compact, low-power **Transmitter Beacon** carried by th
 
 ---
 
-### 2. ESP32 Dev Module $\rightarrow$ SX1278 Connections
+### 2. ESP32 Dev Module $\rightarrow$ SX1278 LoRa Connections
 
 | SX1278 Pin | ESP32 Pin | Description |
 | :--- | :---: | :--- |
@@ -64,6 +64,34 @@ The system consists of a compact, low-power **Transmitter Beacon** carried by th
 | **RESET** | GPIO14 | Transceiver Reset |
 | **DIO0** | GPIO26 | Interrupt Output |
 | **GPIO2** | *Onboard* | Blue LED (Blinks at a rate proportional to distance) |
+
+### 3. ESP32 Dev Module $\rightarrow$ SH1106 OLED Connections (I2C)
+
+| OLED Pin | ESP32 Pin | Description |
+| :--- | :---: | :--- |
+| **VCC** | 3.3V / Vin | Power Input |
+| **GND** | GND | Ground Reference |
+| **SDA** | GPIO21 | I2C Data Pin |
+| **SCL** | GPIO22 | I2C Clock Pin |
+
+---
+
+## Receiver Firmware Variations
+
+The `esp32_receiver/` folder contains three independent firmware variants to choose from depending on your environment:
+
+1. **Standard Model with Timed Sweep:**
+   * **Path:** `esp32_receiver/esp32_receiver_locator/`
+   * **Best For:** Outdoor open environments.
+   * **Tracking:** Uses a **compass-free 10-second circle sweep** (you rotate $360^\circ$ at a steady pace to map signal strengths) and points to the target direction relative to your starting alignment.
+2. **Blended Model with Timed Sweep:**
+   * **Path:** `esp32_receiver/esp32_receiver_blended/`
+   * **Best For:** Complex outdoor environments with minor interference.
+   * **Tracking:** Leverages a dual-exponent path loss model and uses the same 10-second calibration sweep.
+3. **Simplified Proximity Model (Backup):**
+   * **Path:** `esp32_receiver/esp32_receiver_simple/`
+   * **Best For:** Indoor environments or crowded classrooms with strong multipath reflections (where signals echo off concrete walls).
+   * **Tracking:** Completely strips out directions, arrows, and rotating needles. It functions as a pure **Hot-Cold Proximity Finder** (0-100% dial) that turns Red (Hot) when close and Blue (Cold) when far.
 
 ---
 
@@ -93,8 +121,11 @@ The system consists of a compact, low-power **Transmitter Beacon** carried by th
 2. Go to **Preferences** and paste the ESP32 board manager URL:
    `https://raw.githubusercontent.com/espressif/arduino-esp32/gh-pages/package_esp32_index.json`
 3. Go to **Tools -> Board -> Boards Manager**, search for `esp32` by Espressif, and click **Install**.
-4. Go to **Sketch -> Include Library -> Manage Libraries**, search for `LoRa` by Sandeep Mistry, and click **Install**.
-5. Open the [esp32_receiver_locator.ino](esp32_receiver/esp32_receiver_locator.ino) sketch.
+4. Go to **Sketch -> Include Library -> Manage Libraries**, search for:
+   * `LoRa` by Sandeep Mistry (Install)
+   * `Adafruit GFX Library` (Install)
+   * `Adafruit SH110X` (Install)
+5. Open the firmware variant you wish to use (e.g. [esp32_receiver_locator.ino](esp32_receiver/esp32_receiver_locator/esp32_receiver_locator.ino)).
 6. Connect the ESP32 to your PC, select the `ESP32 Dev Module` board and port, and click **Upload**.
 
 ---
@@ -106,11 +137,10 @@ The system consists of a compact, low-power **Transmitter Beacon** carried by th
 3. Connect to the hotspot:
    * **SSID:** `Rescue_Locator_AP`
    * **Password:** `12345678`
-4. Open your web browser and navigate to:
-   ```text
-   http://192.168.4.1
-   ```
-5. Tap **"Enable Audio Search Beeps"** on the screen. The dashboard is now active and will guide your search direction.
+4. Open your web browser and navigate to `http://192.168.4.1`.
+5. Tap **"Enable Audio Search Beeps"**. The web page will play a quick test beep to unlock the browser's audio context (fully compatible with iOS Safari and other mobile browsers).
+6. **(For Sweep Models):** Stand facing forward, tap **"Start Sweep (10s Turn)"**, and slowly rotate in a full $360^\circ$ circle to calibrate the direction arrow.
+7. **(For Simple Model):** Walk in different directions; watch the proximity dial increase (gets Hotter) and listen to the audio ticks speed up as you approach the beacon.
 
 ---
 
