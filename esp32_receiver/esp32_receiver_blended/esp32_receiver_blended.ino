@@ -727,24 +727,10 @@ const char HTML_CONTENT[] PROGMEM = R"rawliteral(
     let lastReceivedTime = 0;
     
     // Compass and sweep variables
-    let userHeading = 0;
-    let compassX = 1.0;
-    let compassY = 0.0;
-    const compassBeta = 0.15; // Jitter filter factor (lower = smoother, higher = faster)
-    let targetAbsoluteHeading = null;
+    // Compass and sweep variables (Timer-Based, Compass-Free)
+    let userHeading = 0; // Fixed forward alignment reference
+    let targetAbsoluteHeading = null; // Relative target angle
     let distanceTrendHistory = [];
-
-    function filterCompassHeading(rawHeading) {
-      let rad = rawHeading * Math.PI / 180;
-      let x = Math.cos(rad);
-      let y = Math.sin(rad);
-      
-      // Smooth Cartesian vector components to handle 360/0 degree wrap-around correctly
-      compassX = (compassBeta * x) + ((1 - compassBeta) * compassX);
-      compassY = (compassBeta * y) + ((1 - compassBeta) * compassY);
-      
-      let smoothHeading = Math.atan2(compassY, compassX) * 180 / Math.PI;
-      if (smoothHeading < 0) {
     let isSweeping = false;
     let sweepDuration = 10000; // 10 seconds for a full circle turn
     let sweepStartTime = 0;
