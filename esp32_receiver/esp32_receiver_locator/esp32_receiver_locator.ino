@@ -26,6 +26,9 @@
 #define OLED_I2C_ADDRESS 0x3C
 Adafruit_SH1106G display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
+// Forward declaration
+void drawOledDisplay(bool force = false);
+
 // Screen refresh variables to avoid blocking high-speed execution
 unsigned long lastDisplayUpdateTime = 0;
 const unsigned long DISPLAY_UPDATE_INTERVAL_MS = 250; // Refresh display 4 times per second
