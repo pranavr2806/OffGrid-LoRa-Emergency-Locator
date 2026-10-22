@@ -50,13 +50,12 @@ const char* password = "12345678";
 
 WebServer server(80);
 
-// Log-Distance Path Loss Model Constants
-const double A = -80.0; // Calibrated RSSI at 1 meter (held at chest height)
-const double n = 3.0;   // Path loss exponent for woods/forest
+// Log-Distance Path Loss Model Constants (Dynamic In-Situ Calibration)
+double A = -75.0; // Calibrated RSSI at 1 meter (Indoor classroom default)
+double n = 2.0;   // Path loss exponent (Indoor line of sight)
 
 // Exponential Moving Average (EMA) Filter Variables
 double filtered_rssi = -120.0;
-const double alpha = 0.15;
 
 // Tracking statistics
 int last_raw_rssi = -120;
@@ -593,6 +592,20 @@ const char HTML_CONTENT[] PROGMEM = R"rawliteral(
           </div>
 
           <div id="drift-warning" style="display: none; background: #FFF0F0; border: 1px solid #FFD2D2; color: #D32F2F; border-radius: 8px; padding: 10px; margin: 12px 16px 0 16px; font-size: 13px; text-align: center; font-weight: 600;">⚠️ Drift Detected! Distance increasing. Recalibrate sweep.</div>
+
+          <!-- In-Situ 1m Calibration & Environment Tuning -->
+          <div style="margin: 12px 16px 0 16px; padding: 12px; background: rgba(0,0,0,0.03); border-radius: 12px; border: 1px solid rgba(0,0,0,0.06); text-align: left;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+              <span style="font-size:11px; font-weight:700; color:var(--text-muted); text-transform:uppercase;">1m Calib (A) & Path Loss (n)</span>
+              <span id="cal-info" style="font-size:11px; font-weight:700; color:var(--text-main);">-75.0 dBm | n=2.0</span>
+            </div>
+            <button onclick="calibrate1m()" class="btn" style="padding: 10px; font-size: 13px; background: var(--accent-blue); color: #fff; margin-bottom: 8px;">🎯 Set 1m Baseline (Hold at 1 Meter)</button>
+            <div style="display: flex; gap: 6px;">
+              <button onclick="setEnv(2.0)" class="btn" style="padding: 6px; font-size: 11px;">Classroom (n=2.0)</button>
+              <button onclick="setEnv(2.4)" class="btn" style="padding: 6px; font-size: 11px;">Corridor (n=2.4)</button>
+              <button onclick="setEnv(3.0)" class="btn" style="padding: 6px; font-size: 11px;">Outdoor (n=3.0)</button>
+            </div>
+          </div>
         </div>
         
         <div class="finder-footer">
@@ -1275,9 +1288,33 @@ const char HTML_CONTENT[] PROGMEM = R"rawliteral(
           if (document.getElementById('tab-diagnostics').classList.contains('active')) {
             drawChart();
           }
+          if (data.cal_a !== undefined && data.cal_n !== undefined) {
+            const calEl = document.getElementById('cal-info');
+            if (calEl) calEl.textContent = data.cal_a.toFixed(1) + " dBm | n=" + data.cal_n.toFixed(1);
+          }
         })
         .catch(err => {
           document.getElementById('direction-text').textContent = "Dashboard Connection Error";
+        });
+    }
+
+    function calibrate1m() {
+      fetch('/calibrate')
+        .then(res => res.json())
+        .then(d => {
+          if (d.status === "ok") {
+            alert('Calibrated! 1m Reference A = ' + d.A + ' dBm. Distance set to 1.0m.');
+          }
+        })
+        .catch(e => alert('Calibration failed: ' + e));
+    }
+
+    function setEnv(val) {
+      fetch('/calibrate?n=' + val)
+        .then(res => res.json())
+        .then(d => {
+          const calEl = document.getElementById('cal-info');
+          if (calEl) calEl.textContent = d.A.toFixed(1) + " dBm | n=" + d.n.toFixed(1);
         });
     }
 
@@ -1291,7 +1328,7 @@ const char HTML_CONTENT[] PROGMEM = R"rawliteral(
       document.getElementById('diag-time').textContent = elapsed + "s ago";
     }, 100);
 
-    setInterval(updateData, 450);
+    setInterval(updateData, 200); // 5 updates/second for zero lag
   </script>
 </body>
 </html>
@@ -1312,12 +1349,34 @@ void handleData() {
   json += "\"filtered_rssi\":" + String(filtered_rssi) + ",";
   json += "\"snr\":" + String(last_snr) + ",";
   json += "\"distance\":" + String(current_estimated_distance) + ",";
+  json += "\"cal_a\":" + String(A, 1) + ",";
+  json += "\"cal_n\":" + String(n, 2) + ",";
   json += "\"packet_count\":" + String(packet_count) + ",";
   json += "\"packet_loss_rate\":" + String(packet_loss_rate) + ",";
   json += "\"signal_lost\":" + String(signal_lost ? "true" : "false") + ",";
   json += "\"last_payload\":\"" + last_payload + "\"";
   json += "}";
   server.send(200, "application/json", json);
+}
+
+void handleCalibrate() {
+  if (server.hasArg("a")) {
+    A = server.arg("a").toDouble();
+  } else if (!signal_lost && filtered_rssi > -115.0) {
+    A = filtered_rssi; // 1-meter instant calibration from current RSSI
+  }
+  if (server.hasArg("n")) {
+    n = server.arg("n").toDouble();
+  }
+  
+  if (!signal_lost && filtered_rssi > -115.0) {
+    double exponent = (A - filtered_rssi) / (10.0 * n);
+    current_estimated_distance = pow(10.0, exponent);
+  }
+  drawOledDisplay(true);
+
+  String res = "{\"status\":\"ok\",\"A\":" + String(A, 1) + ",\"n\":" + String(n, 2) + "}";
+  server.send(200, "application/json", res);
 }
 
 void drawOledDisplay(bool force = false) {
@@ -1453,6 +1512,7 @@ void setup() {
   // Configure Web Server routes
   server.on("/", handleRoot);
   server.on("/data", handleData);
+  server.on("/calibrate", handleCalibrate);
   server.begin();
   Serial.println("Local HTTP Server started.");
 
@@ -1544,13 +1604,20 @@ void loop() {
     last_raw_rssi = LoRa.packetRssi();
     last_snr = LoRa.packetSnr();
 
-    // Filter RSSI with step-change detection
+    // Fast Responsive Adaptive EMA Filter (Eliminates Lag)
     if (filtered_rssi == -120.0) {
       filtered_rssi = last_raw_rssi;
-    } else if (abs(last_raw_rssi - (int)filtered_rssi) > 5) {
-      filtered_rssi = last_raw_rssi;
     } else {
-      filtered_rssi = (alpha * last_raw_rssi) + ((1.0 - alpha) * filtered_rssi);
+      double diff = abs(last_raw_rssi - filtered_rssi);
+      double dyn_alpha;
+      if (diff > 7.0) {
+        dyn_alpha = 0.80; // Sudden step change / rapid movement (instant snap)
+      } else if (diff > 2.5) {
+        dyn_alpha = 0.45; // Walking speed (updates within 0.5s)
+      } else {
+        dyn_alpha = 0.20; // Stationary noise rejection (rock-solid stability)
+      }
+      filtered_rssi = (dyn_alpha * last_raw_rssi) + ((1.0 - dyn_alpha) * filtered_rssi);
     }
 
     // Distance Calculation (Log-Distance Path Loss Model)

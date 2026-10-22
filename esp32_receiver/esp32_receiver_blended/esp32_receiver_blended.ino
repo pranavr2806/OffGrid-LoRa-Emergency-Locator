@@ -1550,13 +1550,20 @@ void loop() {
     last_raw_rssi = LoRa.packetRssi();
     last_snr = LoRa.packetSnr();
 
-    // Filter RSSI with step-change detection
+    // Fast Responsive Adaptive EMA Filter (Eliminates Lag)
     if (filtered_rssi == -120.0) {
       filtered_rssi = last_raw_rssi;
-    } else if (abs(last_raw_rssi - (int)filtered_rssi) > 5) {
-      filtered_rssi = last_raw_rssi;
     } else {
-      filtered_rssi = (alpha * last_raw_rssi) + ((1.0 - alpha) * filtered_rssi);
+      double diff = abs(last_raw_rssi - filtered_rssi);
+      double dyn_alpha;
+      if (diff > 7.0) {
+        dyn_alpha = 0.80; // Sudden step change / rapid movement (instant snap)
+      } else if (diff > 2.5) {
+        dyn_alpha = 0.45; // Walking speed (updates within 0.5s)
+      } else {
+        dyn_alpha = 0.20; // Stationary noise rejection (rock-solid stability)
+      }
+      filtered_rssi = (dyn_alpha * last_raw_rssi) + ((1.0 - dyn_alpha) * filtered_rssi);
     }
 
     // Dynamic Blending Factor Calculation based on filtered RSSI

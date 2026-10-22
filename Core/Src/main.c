@@ -246,7 +246,7 @@ int main(void)
         int len = snprintf(msg_buf, sizeof(msg_buf), "BEACON_%04lu", (unsigned long)packet_num++);
         SX1278_SendPacket((uint8_t *)msg_buf, len);
 
-        HAL_Delay(2000);
+        HAL_Delay(350); // Fast 350ms interval (~3 packets/sec) for real-time tracking with zero lag
 
     /* USER CODE BEGIN 3 */
   }
