@@ -554,7 +554,7 @@ void handleCalibrate() {
   server.send(200, "application/json", res);
 }
 
-void drawOledDisplay(bool force = false) {
+void drawOledDisplay(bool force) {
   unsigned long now = millis();
   if (!force && (now - lastDisplayUpdateTime < DISPLAY_UPDATE_INTERVAL_MS)) {
     return;
