@@ -364,7 +364,10 @@ const char HTML_CONTENT[] PROGMEM = R"rawliteral(
       ctx.stroke();
     }
 
+    let isFetching = false;
     function updateTelemetry() {
+      if (isFetching) return;
+      isFetching = true;
       fetch('/data')
         .then(res => res.json())
         .then(data => {
@@ -484,6 +487,10 @@ const char HTML_CONTENT[] PROGMEM = R"rawliteral(
               nextBeepTime = now + interval;
             }
           }
+        })
+        .catch(err => {})
+        .finally(() => {
+          isFetching = false;
         });
     }
 
@@ -507,7 +514,7 @@ const char HTML_CONTENT[] PROGMEM = R"rawliteral(
         });
     }
 
-    setInterval(updateTelemetry, 200); // 5 updates/second for zero lag
+    setInterval(updateTelemetry, 300); // 3.3 updates/second with anti-blocking guard
   </script>
 </body>
 </html>
@@ -515,10 +522,13 @@ const char HTML_CONTENT[] PROGMEM = R"rawliteral(
 
 // Web server routing handlers
 void handleRoot() {
-  server.send(200, "text/html", HTML_CONTENT);
+  server.sendHeader("Cache-Control", "no-cache");
+  server.send_P(200, "text/html", HTML_CONTENT);
 }
 
 void handleData() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   String json = "{";
   json += "\"raw_rssi\":" + String(last_raw_rssi) + ",";
   json += "\"filtered_rssi\":" + String(filtered_rssi) + ",";
@@ -775,8 +785,7 @@ void loop() {
     // Distance Calculation (Standard model)
     double exponent = (A - filtered_rssi) / (10.0 * n);
     current_estimated_distance = pow(10.0, exponent);
-
-    drawOledDisplay(true); // Force redraw
+    // OLED display is refreshed smoothly by non-blocking drawOledDisplay(false) in loop()
   }
 
   // Handle signal loss timeout (5 seconds)

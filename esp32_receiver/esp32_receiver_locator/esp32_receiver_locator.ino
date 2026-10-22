@@ -1085,7 +1085,10 @@ const char HTML_CONTENT[] PROGMEM = R"rawliteral(
       ctx.stroke();
     }
 
+    let isFetching = false;
     function updateData() {
+      if (isFetching) return;
+      isFetching = true;
       let queryUrl = '/data';
       if (targetAbsoluteHeading !== null) {
         let relAngle = targetAbsoluteHeading;
@@ -1298,6 +1301,9 @@ const char HTML_CONTENT[] PROGMEM = R"rawliteral(
         })
         .catch(err => {
           document.getElementById('direction-text').textContent = "Dashboard Connection Error";
+        })
+        .finally(() => {
+          isFetching = false;
         });
     }
 
@@ -1331,7 +1337,7 @@ const char HTML_CONTENT[] PROGMEM = R"rawliteral(
       document.getElementById('diag-time').textContent = elapsed + "s ago";
     }, 100);
 
-    setInterval(updateData, 200); // 5 updates/second for zero lag
+    setInterval(updateData, 300); // 3.3 updates/second with anti-blocking guard
   </script>
 </body>
 </html>
@@ -1339,10 +1345,13 @@ const char HTML_CONTENT[] PROGMEM = R"rawliteral(
 
 // Web server routing handlers
 void handleRoot() {
-  server.send(200, "text/html", HTML_CONTENT);
+  server.sendHeader("Cache-Control", "no-cache");
+  server.send_P(200, "text/html", HTML_CONTENT);
 }
 
 void handleData() {
+  server.sendHeader("Access-Control-Allow-Origin", "*");
+  server.sendHeader("Cache-Control", "no-cache, no-store, must-revalidate");
   if (server.hasArg("target_rel_heading")) {
     relative_target_heading = server.arg("target_rel_heading").toDouble();
   }
@@ -1631,9 +1640,7 @@ void loop() {
     Serial.print("ID: "); Serial.print(last_payload);
     Serial.print(" | Raw: "); Serial.print(last_raw_rssi);
     Serial.print(" | Loss Rate: "); Serial.print(packet_loss_rate, 1);
-    Serial.print("% | Distance: "); Serial.println(current_estimated_distance, 2);
-
-    drawOledDisplay(true); // Force redraw to show updated distance on OLED
+    // OLED display is refreshed smoothly by non-blocking drawOledDisplay(false) in loop()
   }
 
   // Handle signal loss timeout
